@@ -1,18 +1,51 @@
 #include <stdio.h>
 
-typedef struct processo {
+typedef struct process {
+    // PCB
     int pid;
     int status;
-    int prioridade;
-    int tempo_cpu;
-    int inicio;
-    int tempo_io[6]; /* [tempo_disco, inicio_disco, tempo_fita, inicio_fita, tempo_impressora, inicio_impressora] */
-} Processo;
+    int priority;
+
+    // Infos de execucao
+    int time_cpu;
+    int arrival;
+    int time_io[6]; /* [tempo_disco, inicio_disco, tempo_fita, inicio_fita, tempo_impressora, inicio_impressora] */
+
+    // Ponteiro de fila
+    Process* next;
+} Process;
+
+// Adicionar processo em um fila (ALEXANDRE)
+    // Ex: Processo vai fazer IO de impressora
+        // add(p1, printer_queue)
+    // Ex: Processo foi preemptado
+        // add(p1, low_priority_queue)
+    // Ex: Processo novo
+        // add(p1, low_priority_queue)
+void add(Process* p, Process** queue);
+
+// Retirar o primeiro processo de uma fila (ALEXANDRE)
+    // Ex: preempcao
+        //  remove(high_priority_queue) 
+    // Ex: fim de IO
+        //  remove(printer_queue) 
+Process* remove(Process** queue);
+
+// Filas
+Process** high_priority_queue;
+Process** low_priority_queue;
+Process** printer_queue;
+Process** disk_queue;
+Process** magnetic_tape_queue;
+
+// Gerar processos de exemplo (LUCAS)
+    // Retornar array de ponteiros de processos
+Process** generate_processes();
 
 int main(int argc, char **argv){
     /* TODO: funcao pra criar uma array de processos */
     int t = 0;
-    while(1){
+    while(1){ // (SASSE)
 
         /* ---------- INICIO - ADICIONAR NAS FILAS ---------- */
 
