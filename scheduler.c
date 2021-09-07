@@ -1,6 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// Controles de estados
+#define NEW 0
+#define READY 1
+#define RUNNING 2
+#define WAITING 3
+#define TERMINATED 4
+
 typedef struct process {
     // PCB
     int pid;
@@ -16,6 +23,9 @@ typedef struct process {
     struct process* next;
 } Process;
 
+// Variável auxiliar para contar o número de processos
+static int process_number = 0;
+
 // Adicionar processo em um fila (ALEXANDRE)
     // Ex: Processo vai fazer IO de impressora
         // add(p1, printer_queue)
@@ -30,7 +40,7 @@ void add(Process* p, Process** queue);
         //  remove(high_priority_queue) 
     // Ex: fim de IO
         //  remove(printer_queue) 
-Process* remove(Process** queue);
+//Process* remove(Process** queue);
 
 // Filas
 Process** high_priority_queue;
@@ -42,57 +52,42 @@ Process** magnetic_tape_queue;
 // Gerar processos de exemplo (LUCAS)
     // Retornar array de ponteiros de processos
 
-//Inicializa as informações de cada processo
-void init_process(Process* p, int pid, int status, int priority, int time_cpu, int arrival, int time_io[]) {
-    p->pid = pid;
-    p->status = status;
+// Cria um processo com as informações passadas
+Process* init_process(int priority, int time_cpu, int arrival) {
+    Process* p = (Process*) malloc(sizeof(Process));
+
+    p->pid = process_number++;
+    p->status = NEW;
     p->priority = priority;
     p->time_cpu = time_cpu;
     p->arrival = arrival;
 
-    for (int i = 0; i <= 5; i++) {
-        p->time_io[i] = time_io[i];
-    }
+    return p;
+
 }
 
-//Gera 5 processos com valores definidos e retorna uma array de ponteiros de processos
+//Cria uma lista de 5 processos
+    // São os processos da questão 2 da lista 2
+    // Ainda vou colocar a opção de criar uma certa quantia de processos e retornar valores aleatórios
 Process** generate_processes() {
-    Process* p1;
-    Process* p2;
-    Process* p3;
-    Process* p4;
-    Process* p5;
-    Process* process_list[5];
+    Process** processes_list = (Process**) malloc(5 * sizeof(Process*));
 
-    p1 = (Process*) malloc(sizeof(Process));
-    p2 = (Process*) malloc(sizeof(Process));
-    p3 = (Process*) malloc(sizeof(Process));
-    p4 = (Process*) malloc(sizeof(Process));
-    p5 = (Process*) malloc(sizeof(Process));
+    processes_list[0] = init_process(3, 13, 0);
+    processes_list[1] = init_process(4, 11, 4);
+    processes_list[2] = init_process(1, 7, 5);
+    processes_list[3] = init_process(2, 8, 7);
+    processes_list[4] = init_process(5, 16, 10);
     
-    init_process(p1, 1, 0, 3, 13, 0, NULL);
-    init_process(p2, 2, 0, 4, 11, 4, NULL);
-    init_process(p3, 3, 0, 1, 7, 5, NULL);
-    init_process(p4, 4, 0, 2, 8, 7, NULL);
-    init_process(p5, 5, 0, 5, 16, 10, NULL);
-
-    process_list[0] = p1;
-    process_list[1] = p2;
-    process_list[2] = p3;
-    process_list[3] = p4;
-    process_list[4] = p5;
-
-    return process_list;
+    return processes_list;
 
 }
 
 int main(int argc, char **argv){
     /* TODO: funcao pra criar uma array de processos */
-    Process** p;
-    p = generate_processes();
-
+    Process** processes_list = generate_processes();
+    
     for (int i = 0; i < 5; i++) {
-        printf("%d\n", (*(p + i))->pid);
+        printf("%d\n", processes_list[i]->pid);
     }
 
     int t = 0;
