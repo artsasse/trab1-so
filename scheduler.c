@@ -33,14 +33,14 @@ static int process_number = 0;
         // add(p1, low_priority_queue)
     // Ex: Processo novo
         // add(p1, low_priority_queue)
-void add(Process* p, Process** queue);
+void add_process(Process* p, Process** queue);
 
 // Retirar o primeiro processo de uma fila (ALEXANDRE)
     // Ex: preempcao
         //  remove(high_priority_queue) 
     // Ex: fim de IO
         //  remove(printer_queue) 
-//Process* remove(Process** queue);
+Process* remove_process(Process** queue);
 
 // Filas
 Process** high_priority_queue;
