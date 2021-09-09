@@ -56,6 +56,10 @@ void add_process(Process* p, Process** queue);
         //  remove(printer_queue) 
 Process* remove_process(Process** queue);
 
+Process* get_running_process(void);
+
+void run_process(Process* running_process, int* time_slice);
+
 // Filas
 Process** high_priority_queue;
 Process** low_priority_queue;
@@ -113,106 +117,38 @@ int main(int argc, char **argv){
     int t = 0;
     while(1){ // (SASSE)
 
-        /* ---------- INICIO - ADICIONAR NAS FILAS ---------- */
-
-        /* ---------- INICIO - ALTA PRIORIDADE ---------- */
+        /* ---------- INICIO - ADICIONA PROCESSOS NOVOS NA FILA ---------- */
         /* TODO: verifica se ha processos NOVOS no instante de tempo t*/
             /* TODO: adiciona processos NOVOS na fila de ALTA prioridade*/
 
-        /* TODO: verifica se ha processos voltando de FITA MAGNETICA no instante de tempo t*/
+        /* ---------- FIM - ADICIONA PROCESSOS NOVOS NA FILA ---------- */
 
-            /* TODO: adiciona processos voltando de FITA MAGNETICA na fila de ALTA prioridade*/
+        /* ---------- INICIO - SELECIONA PROCESSOS ---------- */
 
-        /* TODO: verifica se ha processos voltando de IMPRESSORA no instante de tempo t*/
-
-            /* TODO: adiciona processos voltando de IMPRESSORA na fila de ALTA prioridade*/
-
-        /* ---------- FIM - ALTA PRIORIDADE ---------- */
-
-        /* ---------- INICIO - BAIXA PRIORIDADE ---------- */
-        /* TODO: verifica se ha processos voltando de DISCO no instante de tempo t*/
-
-            /* TODO: adiciona processos voltando de DISCO na fila de BAIXA prioridade*/
-
-        /* ---------- FIM - BAIXA PRIORIDADE ---------- */
-
-        /* ---------- FIM - ADICIONAR NAS FILAS ---------- */
-
-        /* ---------- INICIO - EXECUCAO CPU ---------- */
-
-        // TODO: encapsular em funcao
-        /* Seleciona o processo a ser executado.
-        Mantém o mesmo processo ou, se houve preempcao/bloqueio/término, seleciona o primeiro processo das filas de pronto. */
-
-        /* Quando time_slice == 0, houve preempcao, bloqueio ou término. Logo, precisamos de um novo processo. */
+        // Seleciona o processo a ser executado na CPU.
+        // Quando time_slice == 0, houve preempcao, bloqueio ou término. Logo, precisamos de um novo processo.
         if(time_slice == 0){
 
             // Restaura time slice
             time_slice = QUANTUM;
+            
+            // Pega o proximo processo a ser executado
+            running_process = get_running_process();
 
-            // Busca processo na fila de alta prioridade
-            running_process = remove_process(high_priority_queue);
-
-            // Se estiver vazia, busca na fila de baixa prioridade
-            if (running_process == NULL){
-                running_process = remove_process(low_priority_queue);
-
-                // Se nao houver processo em nenhuma fila para CPU, pula o ciclo
-                if (running_process == NULL)
-                    continue;
-            }
-
-            // Altera status do processo
-            running_process->status = RUNNING;
-        }
+        // TODO: Selecionar processos das filas de I/O.
         
-        /* TODO: decrementa o tempo_cpu do processo */
-        running_process->time_cpu--;
-        /* TODO: decrementa o time slice */
-        time_slice--;
+        }
 
-        /* verifica se algum dos inicios de I/O batem com o time_cpu atual */
-        io_type = -1;
-        for (i = 0; i < IO_TYPES; i++){
-            start_io = running_process->start_io[i];
-            // se existe um I/O que começa agora, pegamos o seu numero
-            if (running_process->time_cpu == start_io)
-                io_type = i;
-        }
-        
-        // Se pegou um numero de I/O, pega a fila de I/O correspondente
-        if (io_type >= 0){
-            switch (io_type){
-                case DISK:
-                    queue = disk_queue;
-                    break;
-                case MAGNETIC_TAPE:
-                    queue = magnetic_tape_queue;
-                    break;
-                case PRINTER:
-                    queue = printer_queue;
-                    break;
-            }
-            // adiciona o processo na fila
-            if (queue != NULL){
-                add_process(running_process, queue);
-                running_process->status = WAITING;
-            }
-            // zera o time slice para indicar que houve bloqueio
-            time_slice = 0;
-        }
-        // Se o tempo de serviço do processo acabou, termina o processo
-        else if(running_process->time_cpu == 0){
-            running_process->status == TERMINATED;
-            // zera o time slice para indicar que houve término
-            time_slice = 0;
-        }
-        // Se o time slice acabou, faz a preempcao
-        else if(time_slice == 0){
-            // Move o processo para a fila de baixa prioridade
-            add_process(running_process, low_priority_queue);
-            // Muda o status
-            running_process->status = READY;
+        /* ---------- FIM - SELECIONA PROCESSOS ---------- */
+
+
+        /* ---------- INICIO - EXECUCAO CPU ---------- */
+
+        /* Se houver um processo a ser executado, realiza as operacoes da CPU */
+        if(running_process != NULL){
+
+            /* Realiza execucao de CPU */
+            run_process(running_process, &time_slice);
         }
 
         /* ---------- FIM - EXECUCAO CPU ---------- */
@@ -221,8 +157,87 @@ int main(int argc, char **argv){
 
         /* ---------- FIM - EXECUCAO I/O ---------- */
 
-
-
     }
     printf("Hello World\n");
+}
+
+/* Funcoes */
+
+/*  Retorna o ponteiro do proximo processo a ser executado. 
+    Retorna NULL se nao houver processos nas filas. */
+Process* get_running_process(void){
+
+    Process* running_process = NULL;
+
+    // Busca processo na fila de alta prioridade
+    running_process = remove_process(high_priority_queue);
+
+    // Se estiver vazia, busca na fila de baixa prioridade
+    if (running_process == NULL){
+        running_process = remove_process(low_priority_queue);
+    }
+
+    // Altera status do processo
+    if (running_process != NULL)
+        running_process->status = RUNNING;
+
+    return running_process;
+}
+
+/*  Realiza a execução do processo na CPU. */
+void run_process(Process* running_process, int* time_slice){
+
+    int io_type, i;
+    Process** queue = NULL;
+
+    /* Decrementa o time slice */
+    *(time_slice)--;
+
+    /* Decrementa o time_cpu do processo */
+    running_process->time_cpu--;
+
+    /* verifica se algum I/O vai começar no proximo instante de tempo */
+    io_type = -1;
+    for (i = 0; i < IO_TYPES; i++){
+        // se existe um I/O que começa agora, seleciona o seu numero
+        if (running_process->time_cpu == running_process->start_io[i]){
+            io_type = i;
+            break;
+        }
+    }
+    
+    // Se selecionou um numero de I/O, escolhe a fila de I/O correspondente
+    if (io_type >= 0){
+        switch (io_type){
+            case DISK:
+                queue = disk_queue;
+                break;
+            case MAGNETIC_TAPE:
+                queue = magnetic_tape_queue;
+                break;
+            case PRINTER:
+                queue = printer_queue;
+                break;
+        }
+        // adiciona o processo na fila
+        if (queue != NULL){
+            add_process(running_process, queue);
+            running_process->status = WAITING;
+        }
+        // zera o time slice para indicar que houve bloqueio
+        *(time_slice) = 0;
+    }
+    // Se o tempo de serviço do processo acabou, termina o processo
+    else if(running_process->time_cpu == 0){
+        running_process->status == TERMINATED;
+        // zera o time slice para indicar que houve término
+        *(time_slice) = 0;
+    }
+    // Se o time slice acabou, faz a preempcao
+    else if(time_slice == 0){
+        // Move o processo para a fila de baixa prioridade
+        add_process(running_process, low_priority_queue);
+        // Muda o status
+        running_process->status = READY;
+    }
 }
