@@ -22,8 +22,12 @@
 #define MAGNETIC_TAPE 1
 #define PRINTER 2
 
+
 // Variável auxiliar para contar o número de processos
 int process_number = 0;
+
+// Variável auxiliar para contar o número de processos que terminaram
+int terminated = 0;
 
 typedef struct process {
     // PCB
@@ -41,73 +45,63 @@ typedef struct process {
     struct process* next;
 } Process;
 
-// Gerar processos de exemplo (LUCAS)
-    // Retornar array de ponteiros de processos
+// Prototypes
+
 Process* init_process(int priority, int time_cpu, int arrival);
-
 Process** generate_processes();
-
 Process** generate_random_processes(int amount);
-
-// Adicionar processo em um fila
-    // Ex: Processo vai fazer IO de impressora
-        // add_process(p1, &printer_queue)
-    // Ex: Processo foi preemptado
-        // add_process(p1, &low_priority_queue)
-    // Ex: Processo novo
-        // add_process(p1, &low_priority_queue)
 void add_process(Process* p, Process** queue);
-
-// Retirar o primeiro processo de uma fila
-    // Ex: preempcao
-        //  remove_process(&high_priority_queue) 
-    // Ex: fim de IO
-        //  remove_process(&printer_queue) 
 Process* remove_process(Process** queue);
-
-// Mostra os processos em um fila
-    // Ex: 
-        // print_queue(&printer_queue)
 void print_queue(Process** queue);
-
 Process* get_running_process(void);
-
 void run_process(Process* running_process, int* time_slice);
 
 // Filas
-Process* high_priority_queue;
-Process* low_priority_queue;
-Process* printer_queue;
-Process* disk_queue;
-Process* magnetic_tape_queue;
+Process* high_priority_queue = NULL;
+Process* low_priority_queue = NULL;
+Process* printer_queue = NULL;
+Process* disk_queue = NULL;
+Process* magnetic_tape_queue = NULL;
 
 
 int main(int argc, char **argv){
 
-    static int time_slice = 0;
-    int start_io, i, io_type;
-    Process* running_process;
-    Process** queue;
-    Process** processes_list;
+    int i;
+    int t = 0;
+    int time_slice = 0;
+    Process* running_process = NULL;
+    Process** processes_list = NULL;
 
     processes_list = generate_processes();
     
     // Teste para saber se os processos estão sendo corretamente criados
     for (i = 0; i < process_number; i++) {
         printf("PID = %d\n", processes_list[i]->pid);
-        if (processes_list[i]->status == 0)
-            printf("Status = NEW");
+        if (processes_list[i]->status == NEW)
+            printf("Status = NEW\n");
         printf("Priority = %d\n", processes_list[i]->priority);
         printf("CPU Time = %d\n", processes_list[i]->time_cpu);
         printf("Arrival = %d\n\n", processes_list[i]->arrival);
     }
 
-    int t = 0;
+
     while(1){ // (SASSE)
 
         /* ---------- INICIO - ADICIONA PROCESSOS NOVOS NA FILA ---------- */
-        /* TODO: verifica se ha processos NOVOS no instante de tempo t*/
-            /* TODO: adiciona processos NOVOS na fila de ALTA prioridade*/
+
+        /* Verifica se ha processos NOVOS no instante t*/
+        for (i = 0; i < process_number; i++){
+            // Verifica se tem alguma chegada no instante t
+            if (processes_list[i]->arrival == t){
+                processes_list[i]->status = NEW;
+                // Adiciona imediatamente na fila de alta prioridade
+                processes_list[i]->status = READY;
+                add_process(processes_list[i], &high_priority_queue);
+            }
+            /*  TODO: verificar se algum processo novo pode entrar na fila de alta prioridade
+                levando em conta tamanho das filas. Vamos precisar de uma constante para o tamanho maximo
+                das filas e uma variavel para guardar o quanto elas estao preenchidas. */
+        }
 
         /* ---------- FIM - ADICIONA PROCESSOS NOVOS NA FILA ---------- */
 
@@ -145,6 +139,15 @@ int main(int argc, char **argv){
 
         /* ---------- FIM - EXECUCAO I/O ---------- */
 
+        // Verifica se todos os processos terminaram
+        if (terminated == process_number){
+            printf("Terminou.");
+            // TODO: liberar memoria alocada dos processos
+            return 0;
+        }
+
+        // Senao, incrementa o tempo
+        t++;
     }
     printf("Hello World\n");
 }
@@ -163,6 +166,9 @@ Process* init_process(int priority, int time_cpu, int arrival) {
     p->priority = priority;
     p->time_cpu = time_cpu;
     p->arrival = arrival;
+    
+    // Processo começa fora de qualquer fila
+    p->next = NULL;
 
     return p;
 }
@@ -210,11 +216,11 @@ Process* get_running_process(void){
     Process* running_process = NULL;
 
     // Busca processo na fila de alta prioridade
-    running_process = remove_process(high_priority_queue);
+    running_process = remove_process(&high_priority_queue);
 
     // Se estiver vazia, busca na fila de baixa prioridade
     if (running_process == NULL){
-        running_process = remove_process(low_priority_queue);
+        running_process = remove_process(&low_priority_queue);
     }
 
     // Altera status do processo
@@ -231,7 +237,7 @@ void run_process(Process* running_process, int* time_slice){
     Process** queue = NULL;
 
     /* Decrementa o time slice */
-    *(time_slice)--;
+    (*time_slice)--;
 
     /* Decrementa o time_cpu do processo */
     running_process->time_cpu--;
@@ -250,13 +256,13 @@ void run_process(Process* running_process, int* time_slice){
     if (io_type >= 0){
         switch (io_type){
             case DISK:
-                queue = disk_queue;
+                queue = &disk_queue;
                 break;
             case MAGNETIC_TAPE:
-                queue = magnetic_tape_queue;
+                queue = &magnetic_tape_queue;
                 break;
             case PRINTER:
-                queue = printer_queue;
+                queue = &printer_queue;
                 break;
         }
         // adiciona o processo na fila
@@ -265,27 +271,33 @@ void run_process(Process* running_process, int* time_slice){
             running_process->status = WAITING;
         }
         // zera o time slice para indicar que houve bloqueio
-        *(time_slice) = 0;
+        *time_slice = 0;
     }
     // Se o tempo de serviço do processo acabou, termina o processo
     else if(running_process->time_cpu == 0){
-        running_process->status == TERMINATED;
+        running_process->status = TERMINATED;
+        terminated++;
         // zera o time slice para indicar que houve término
-        *(time_slice) = 0;
+        *time_slice = 0;
     }
     // Se o time slice acabou, faz a preempcao
     else if(time_slice == 0){
         // Move o processo para a fila de baixa prioridade
-        add_process(running_process, low_priority_queue);
+        add_process(running_process, &low_priority_queue);
         // Muda o status
         running_process->status = READY;
     }
 }
 
+// Retirar o primeiro processo de uma fila
+    // Ex: preempcao
+        //  remove_process(&high_priority_queue) 
+    // Ex: fim de IO
+        //  remove_process(&printer_queue) 
 Process* remove_process(Process** queue) {
     if(queue == NULL) return NULL;
     Process* head = *queue;
-    Process* parent = NULL;
+    Process* parent = head;
 
     while (head->next) {
         parent = head;
@@ -295,11 +307,21 @@ Process* remove_process(Process** queue) {
     return head;
 }
 
+// Adicionar processo em um fila
+    // Ex: Processo vai fazer IO de impressora
+        // add_process(p1, &printer_queue)
+    // Ex: Processo foi preemptado
+        // add_process(p1, &low_priority_queue)
+    // Ex: Processo novo
+        // add_process(p1, &low_priority_queue)
 void add_process(Process* p, Process** queue) {
     if(queue != NULL) p->next = *queue;
     *queue = p;
 }
 
+// Mostra os processos em um fila
+    // Ex: 
+        // print_queue(&printer_queue)
 void print_queue(Process** queue) {
     printf("\nProcessos na fila:\n");
     if(queue == NULL) return;
