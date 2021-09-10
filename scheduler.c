@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 // Controles de estados
 #define NEW 0
@@ -21,6 +22,9 @@
 #define MAGNETIC_TAPE 1
 #define PRINTER 2
 
+// Variável auxiliar para contar o número de processos
+int process_number = 0;
+
 typedef struct process {
     // PCB
     int pid;
@@ -37,8 +41,13 @@ typedef struct process {
     struct process* next;
 } Process;
 
-// Variável auxiliar para contar o número de processos
-static int process_number = 0;
+// Gerar processos de exemplo (LUCAS)
+    // Retornar array de ponteiros de processos
+Process* init_process(int priority, int time_cpu, int arrival);
+
+Process** generate_processes();
+
+Process** generate_random_processes(int amount);
 
 // Adicionar processo em um fila (ALEXANDRE)
     // Ex: Processo vai fazer IO de impressora
@@ -67,38 +76,6 @@ Process** printer_queue;
 Process** disk_queue;
 Process** magnetic_tape_queue;
 
-// Gerar processos de exemplo (LUCAS)
-    // Retornar array de ponteiros de processos
-
-// Cria um processo com as informações passadas
-Process* init_process(int priority, int time_cpu, int arrival) {
-    Process* p = (Process*) malloc(sizeof(Process));
-
-    p->pid = process_number++;
-    p->status = NEW;
-    p->priority = priority;
-    p->time_cpu = time_cpu;
-    p->arrival = arrival;
-
-    return p;
-
-}
-
-//Cria uma lista de 5 processos
-    // São os processos da questão 2 da lista 2
-    // Ainda vou colocar a opção de criar uma certa quantia de processos e retornar valores aleatórios
-Process** generate_processes() {
-    Process** processes_list = (Process**) malloc(5 * sizeof(Process*));
-
-    processes_list[0] = init_process(3, 13, 0);
-    processes_list[1] = init_process(4, 11, 4);
-    processes_list[2] = init_process(1, 7, 5);
-    processes_list[3] = init_process(2, 8, 7);
-    processes_list[4] = init_process(5, 16, 10);
-    
-    return processes_list;
-
-}
 
 int main(int argc, char **argv){
 
@@ -106,12 +83,18 @@ int main(int argc, char **argv){
     int start_io, i, io_type;
     Process* running_process;
     Process** queue;
+    Process** processes_list;
 
-
-    Process** processes_list = generate_processes();
+    processes_list = generate_processes();
     
-    for (int i = 0; i < 5; i++) {
-        printf("%d\n", processes_list[i]->pid);
+    // Teste para saber se os processos estão sendo corretamente criados
+    for (i = 0; i < process_number; i++) {
+        printf("PID = %d\n", processes_list[i]->pid);
+        if (processes_list[i]->status == 0)
+            printf("Status = NEW");
+        printf("Priority = %d\n", processes_list[i]->priority);
+        printf("CPU Time = %d\n", processes_list[i]->time_cpu);
+        printf("Arrival = %d\n\n", processes_list[i]->arrival);
     }
 
     int t = 0;
@@ -162,6 +145,58 @@ int main(int argc, char **argv){
 }
 
 /* Funcoes */
+
+// Cria um processo com as informações passadas
+Process* init_process(int priority, int time_cpu, int arrival) {
+
+    // Inicializa um processo
+    Process* p = (Process*) malloc(sizeof(Process));
+
+    // O processo recebe suas características
+    p->pid = process_number++;
+    p->status = NEW;
+    p->priority = priority;
+    p->time_cpu = time_cpu;
+    p->arrival = arrival;
+
+    return p;
+}
+
+//Cria uma lista de 5 processos
+    // São os processos da questão 2 da lista 2
+Process** generate_processes() {
+
+    // Cria a lista de processos
+    Process** processes_list = (Process**) malloc(5 * sizeof(Process*));
+
+    processes_list[0] = init_process(3, 13, 0);
+    processes_list[1] = init_process(4, 11, 4);
+    processes_list[2] = init_process(1, 7, 5);
+    processes_list[3] = init_process(2, 8, 7);
+    processes_list[4] = init_process(5, 16, 10);
+    
+    return processes_list;
+}
+
+// Gera uma lista com processos criados aleatoriamente
+Process** generate_random_processes(int amount) {
+
+    int i;
+
+    // Cria a lista de processos
+    Process** processes_list = (Process**) malloc(amount * sizeof(Process*));
+
+    srand(time(NULL));
+
+    // Cria um processo de cada vez aleatoriamente
+    for (i = 0; i < amount; i++) {
+        /* Na criação, a priority está no intervalo [1,10], 
+           time_cpu no intervalo [1,20] e arrival no intervalo [0,10] */
+        processes_list[i] = init_process((rand() % 9)+1, (rand() % 19)+1, rand() % 11);
+    }
+
+    return processes_list;
+}
 
 /*  Retorna o ponteiro do proximo processo a ser executado. 
     Retorna NULL se nao houver processos nas filas. */
