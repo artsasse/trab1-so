@@ -40,32 +40,37 @@ typedef struct process {
 // Variável auxiliar para contar o número de processos
 static int process_number = 0;
 
-// Adicionar processo em um fila (ALEXANDRE)
+// Adicionar processo em um fila
     // Ex: Processo vai fazer IO de impressora
-        // add(p1, printer_queue)
+        // add_process(p1, &printer_queue)
     // Ex: Processo foi preemptado
-        // add(p1, low_priority_queue)
+        // add_process(p1, &low_priority_queue)
     // Ex: Processo novo
-        // add(p1, low_priority_queue)
+        // add_process(p1, &low_priority_queue)
 void add_process(Process* p, Process** queue);
 
-// Retirar o primeiro processo de uma fila (ALEXANDRE)
+// Retirar o primeiro processo de uma fila
     // Ex: preempcao
-        //  remove(high_priority_queue) 
+        //  remove_process(&high_priority_queue) 
     // Ex: fim de IO
-        //  remove(printer_queue) 
+        //  remove_process(&printer_queue) 
 Process* remove_process(Process** queue);
+
+// Mostra os processos em um fila
+    // Ex: 
+        // print_queue(&printer_queue)
+void print_queue(Process** queue);
 
 Process* get_running_process(void);
 
 void run_process(Process* running_process, int* time_slice);
 
 // Filas
-Process** high_priority_queue;
-Process** low_priority_queue;
-Process** printer_queue;
-Process** disk_queue;
-Process** magnetic_tape_queue;
+Process* high_priority_queue;
+Process* low_priority_queue;
+Process* printer_queue;
+Process* disk_queue;
+Process* magnetic_tape_queue;
 
 // Gerar processos de exemplo (LUCAS)
     // Retornar array de ponteiros de processos
@@ -239,5 +244,33 @@ void run_process(Process* running_process, int* time_slice){
         add_process(running_process, low_priority_queue);
         // Muda o status
         running_process->status = READY;
+    }
+}
+
+Process* remove_process(Process** queue) {
+    if(queue == NULL) return NULL;
+    Process* head = *queue;
+    Process* parent = NULL;
+
+    while (head->next) {
+        parent = head;
+        head = head->next;
+    }
+    parent->next = NULL;
+    return head;
+}
+
+void add_process(Process* p, Process** queue) {
+    if(queue != NULL) p->next = *queue;
+    *queue = p;
+}
+
+void print_queue(Process** queue) {
+    printf("\nProcessos na fila:\n");
+    if(queue == NULL) return;
+    Process* head = *queue;
+    while (head != NULL) {
+        printf(" %d ", head->pid);
+        head = head->next;
     }
 }
