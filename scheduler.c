@@ -36,8 +36,8 @@ typedef struct process {
     int priority;
 
     // Infos de execucao
-    int time_cpu;
-    int arrival;
+    unsigned int time_cpu;
+    unsigned int arrival;
     int start_io[IO_TYPES]; /* [inicio_disco, inicio_fita, inicio_impressora] */
     int duration_io[IO_TYPES]; /* [tempo_disco, tempo_fita, tempo_impressora]  */
 
@@ -47,7 +47,7 @@ typedef struct process {
 
 // Prototypes
 
-Process* init_process(int priority, int time_cpu, int arrival);
+Process* init_process(int priority, unsigned int time_cpu, unsigned int arrival, int* start_io, int* duration_io);
 Process** generate_processes();
 Process** generate_random_processes(int amount);
 void add_process(Process* p, Process** queue);
@@ -76,17 +76,18 @@ int main(int argc, char **argv){
     
     // Teste para saber se os processos estão sendo corretamente criados
     for (i = 0; i < process_number; i++) {
-        printf("PID = %d\n", processes_list[i]->pid);
+        printf("\nPID = %d\n", processes_list[i]->pid);
         if (processes_list[i]->status == NEW)
             printf("Status = NEW\n");
         printf("Priority = %d\n", processes_list[i]->priority);
         printf("CPU Time = %d\n", processes_list[i]->time_cpu);
-        printf("Arrival = %d\n\n", processes_list[i]->arrival);
+        printf("Arrival = %d\n", processes_list[i]->arrival);
+        printf("start_io = %d, %d\n\n", processes_list[i]->start_io[0], processes_list[i]->duration_io[0]);
     }
 
 
-    while(1){ // (SASSE)
-
+    while(t >= 0){
+            
         /* ---------- INICIO - ADICIONA PROCESSOS NOVOS NA FILA ---------- */
 
         /* Verifica se ha processos NOVOS no instante t*/
@@ -97,6 +98,7 @@ int main(int argc, char **argv){
                 // Adiciona imediatamente na fila de alta prioridade
                 processes_list[i]->status = READY;
                 add_process(processes_list[i], &high_priority_queue);
+                printf("Adicionou %d\n", processes_list[i]->pid);
             }
             /*  TODO: verificar se algum processo novo pode entrar na fila de alta prioridade
                 levando em conta tamanho das filas. Vamos precisar de uma constante para o tamanho maximo
@@ -111,11 +113,12 @@ int main(int argc, char **argv){
         // Quando time_slice == 0, houve preempcao, bloqueio ou término. Logo, precisamos de um novo processo.
         if(time_slice == 0){
 
-            // Restaura time slice
-            time_slice = QUANTUM;
-            
             // Pega o proximo processo a ser executado
             running_process = get_running_process();
+
+            // So restaura o time slice se tiver pego um processo
+            if(running_process != NULL)
+                time_slice = QUANTUM;
 
         // TODO: Selecionar processos das filas de I/O.
         
@@ -129,8 +132,12 @@ int main(int argc, char **argv){
         /* Se houver um processo a ser executado, realiza as operacoes da CPU */
         if(running_process != NULL){
 
+            printf("t = %d. Executando %d\n", t, running_process->pid);
             /* Realiza execucao de CPU */
             run_process(running_process, &time_slice);
+        }
+        else{
+            printf("Processador ocioso.\n");
         }
 
         /* ---------- FIM - EXECUCAO CPU ---------- */
@@ -141,7 +148,8 @@ int main(int argc, char **argv){
 
         // Verifica se todos os processos terminaram
         if (terminated == process_number){
-            printf("Terminou.");
+            printf("Todos terminaram.\n");
+            printf("%d instantes de tempo\n", t+1);
             // TODO: liberar memoria alocada dos processos
             return 0;
         }
@@ -155,7 +163,7 @@ int main(int argc, char **argv){
 /* Funcoes */
 
 // Cria um processo com as informações passadas
-Process* init_process(int priority, int time_cpu, int arrival) {
+Process* init_process(int priority, unsigned int time_cpu, unsigned int arrival, int* start_io, int* duration_io) {
 
     // Inicializa um processo
     Process* p = (Process*) malloc(sizeof(Process));
@@ -166,6 +174,23 @@ Process* init_process(int priority, int time_cpu, int arrival) {
     p->priority = priority;
     p->time_cpu = time_cpu;
     p->arrival = arrival;
+
+    // Inicializa as arrays de I/O
+    // Caso 1: Processo nao tem I/O
+    if(start_io == NULL){
+        for(int i = 0; i < IO_TYPES; i++){
+            p->start_io[i] = -1;
+            p->duration_io[i] = -1;
+        }
+    }
+    // Caso 2: Processo tem I/O
+    else{
+        for(int i = 0; i < IO_TYPES; i++){
+            p->start_io[i] = start_io[i];
+            p->duration_io[i] = duration_io[i];
+        }
+    }
+    
     
     // Processo começa fora de qualquer fila
     p->next = NULL;
@@ -179,35 +204,37 @@ Process** generate_processes() {
 
     // Cria a lista de processos
     Process** processes_list = (Process**) malloc(5 * sizeof(Process*));
+    // int start_io[3] = {4, -1, -1};
+    // int duration_io[3] = {2, -1, -1};
 
-    processes_list[0] = init_process(3, 13, 0);
-    processes_list[1] = init_process(4, 11, 4);
-    processes_list[2] = init_process(1, 7, 5);
-    processes_list[3] = init_process(2, 8, 7);
-    processes_list[4] = init_process(5, 16, 10);
+    processes_list[0] = init_process(HIGH, 8, 1, NULL, NULL);
+    processes_list[1] = init_process(HIGH, 3, 2, NULL, NULL);
+    processes_list[2] = init_process(HIGH, 10, 4, NULL, NULL);
+    processes_list[3] = init_process(HIGH, 1, 4, NULL, NULL);
+    processes_list[4] = init_process(HIGH, 2, 11, NULL, NULL);
     
     return processes_list;
 }
 
 // Gera uma lista com processos criados aleatoriamente
-Process** generate_random_processes(int amount) {
+// Process** generate_random_processes(int amount) {
 
-    int i;
+//     int i;
 
-    // Cria a lista de processos
-    Process** processes_list = (Process**) malloc(amount * sizeof(Process*));
+//     // Cria a lista de processos
+//     Process** processes_list = (Process**) malloc(amount * sizeof(Process*));
 
-    srand(time(NULL));
+//     srand(time(NULL));
 
-    // Cria um processo de cada vez aleatoriamente
-    for (i = 0; i < amount; i++) {
-        /* Na criação, a priority está no intervalo [1,10], 
-           time_cpu no intervalo [1,20] e arrival no intervalo [0,10] */
-        processes_list[i] = init_process((rand() % 9)+1, (rand() % 19)+1, rand() % 11);
-    }
+//     // Cria um processo de cada vez aleatoriamente
+//     for (i = 0; i < amount; i++) {
+//         /* Na criação, a priority está no intervalo [1,10], 
+//            time_cpu no intervalo [1,20] e arrival no intervalo [0,10] */
+//         processes_list[i] = init_process((rand() % 9)+1, (rand() % 19)+1, rand() % 11);
+//     }
 
-    return processes_list;
-}
+//     return processes_list;
+// }
 
 /*  Retorna o ponteiro do proximo processo a ser executado. 
     Retorna NULL se nao houver processos nas filas. */
@@ -241,6 +268,8 @@ void run_process(Process* running_process, int* time_slice){
 
     /* Decrementa o time_cpu do processo */
     running_process->time_cpu--;
+    // if(running_process->time_cpu >= -10)
+    //     printf("time_cpu do p%d = %d\n", running_process->pid, running_process->time_cpu);
 
     /* verifica se algum I/O vai começar no proximo instante de tempo */
     io_type = -1;
@@ -256,6 +285,10 @@ void run_process(Process* running_process, int* time_slice){
     if (io_type >= 0){
         switch (io_type){
             case DISK:
+                printf("Entrou no I/O de DISCO.\n");
+                printf("%d, %d, %d\n", running_process->start_io[0], running_process->start_io[1], running_process->start_io[2]);
+                printf("time_cpu = %d\n", running_process->time_cpu);
+                printf("pid de quem entrou no I/O = %d\n", running_process->pid);
                 queue = &disk_queue;
                 break;
             case MAGNETIC_TAPE:
@@ -275,13 +308,15 @@ void run_process(Process* running_process, int* time_slice){
     }
     // Se o tempo de serviço do processo acabou, termina o processo
     else if(running_process->time_cpu == 0){
+        printf("Terminou o %d\n", running_process->pid);
         running_process->status = TERMINATED;
         terminated++;
         // zera o time slice para indicar que houve término
         *time_slice = 0;
     }
     // Se o time slice acabou, faz a preempcao
-    else if(time_slice == 0){
+    else if(*time_slice == 0){
+        printf("Rolou preempcao.\n");
         // Move o processo para a fila de baixa prioridade
         add_process(running_process, &low_priority_queue);
         // Muda o status
@@ -295,14 +330,22 @@ void run_process(Process* running_process, int* time_slice){
     // Ex: fim de IO
         //  remove_process(&printer_queue) 
 Process* remove_process(Process** queue) {
-    if(queue == NULL) return NULL;
+    if(*queue == NULL) return NULL;
     Process* head = *queue;
     Process* parent = head;
 
+    // Se houver apenas 1 processo na fila
+    if(head->next == NULL){
+        *queue = NULL;
+        return head;
+    }
+    
+    // Se tem mais de 1 processo na fila
     while (head->next) {
         parent = head;
         head = head->next;
     }
+
     parent->next = NULL;
     return head;
 }
