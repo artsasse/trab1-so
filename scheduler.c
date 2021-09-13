@@ -206,6 +206,8 @@ int main(int argc, char **argv){
             run_process(running_process, &time_slice);
         }
         else{
+            // TODO: Alterar console para mostrar processo que está 
+            // sendo executado ou se está ocioso
             // printf("Processador ocioso.\n");
         }
 
