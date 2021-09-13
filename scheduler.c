@@ -130,7 +130,7 @@ int main(int argc, char **argv){
             run_process(running_process, &time_slice);
         }
         else{
-            printf("Processador ocioso.\n");
+            //printf("Processador ocioso.\n");
         }
 
         /* ---------- FIM - EXECUCAO CPU ---------- */
@@ -198,14 +198,16 @@ Process** generate_processes() {
 
     // Cria a lista de processos
     Process** processes_list = (Process**) malloc(5 * sizeof(Process*));
-    // int start_io[3] = {4, -1, -1};
-    // int duration_io[3] = {2, -1, -1};
+    int start_io0[3] = {4, -1, -1};
+    int duration_io0[3] = {2, -1, -1};
+    int start_io4[3] = {-1, 2, 5};
+    int duration_io4[3] = {-1, 2, 3};
 
-    processes_list[0] = init_process(8, 1, NULL, NULL);
+    processes_list[0] = init_process(8, 1, start_io0, duration_io0);
     processes_list[1] = init_process(3, 2, NULL, NULL);
     processes_list[2] = init_process(10, 4, NULL, NULL);
     processes_list[3] = init_process(1, 4, NULL, NULL);
-    processes_list[4] = init_process(2, 11, NULL, NULL);
+    processes_list[4] = init_process(2, 11, start_io4, duration_io4);
     
     return processes_list;
 }
@@ -372,7 +374,7 @@ void print_queue(Process** queue) {
 // Imprime as características de um processo
 void print_process(Process* process) {
     printf("\nProcesso %d:\n", process->pid);
-    printf("Status -> ");
+    printf("\tStatus = ");
     switch (process->status) {
         case 0:
             printf("NEW\n");
@@ -390,7 +392,7 @@ void print_process(Process* process) {
             printf("TERMINATED\n");
             break;
     }
-    printf("Priority -> ");
+    printf("\tPriority = ");
     switch (process->priority) {
         case 0:
             printf("LOW\n");
@@ -399,8 +401,29 @@ void print_process(Process* process) {
             printf("HIGH\n");
             break;
     }
-    printf("CPU Time -> %d\n", process->time_cpu);
-    printf("Arrival -> %d\n\n", process->arrival);
+    printf("\tCPU Time = %d\n", process->time_cpu);
+    printf("\tArrival = %d\n", process->arrival);
+    for (int i = 0; i < IO_TYPES; i++) {
+        if (process->start_io[i] >= 0) {
+            switch (i) {
+                case 0:
+                    printf("Disk:\n");
+                    printf("\tStart = %d\n", process->start_io[i]);
+                    printf("\tDuration = %d\n", process->duration_io[i]);
+                    break;
+                case 1:
+                    printf("Magnetic Tape:\n");
+                    printf("\tStart = %d\n", process->start_io[i]);
+                    printf("\tDuration = %d\n", process->duration_io[i]);
+                    break;
+                case 2:
+                    printf("Printer:\n");
+                    printf("\tStart = %d\n", process->start_io[i]);
+                    printf("\tDuration = %d\n", process->duration_io[i]);
+                    break;
+            }
+        }
+    }
 }
 
 // Imprime todos os processos
