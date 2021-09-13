@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <ncurses.h>
+#include <string.h>
 
 // Controles de estados
 #define NEW 0
@@ -22,6 +24,15 @@
 #define MAGNETIC_TAPE 1
 #define PRINTER 2
 
+
+// Label status
+char statuses[5][10] = {
+    {"NEW"},
+    {"READY"},
+    {"RUNNING"},
+    {"WAITING"},
+    {"TERMINATED"},
+};
 
 // Variável auxiliar para contar o número de processos
 int process_number = 0;
@@ -52,7 +63,7 @@ Process** generate_processes();
 Process** generate_random_processes(int amount);
 void add_process(Process* p, Process** queue);
 Process* remove_process(Process** queue);
-void print_queue(Process** queue);
+void get_queue_str(Process** queue, char* str);
 Process* get_running_process(void);
 void run_process(Process* running_process, int* time_slice);
 
@@ -63,6 +74,12 @@ Process* printer_queue = NULL;
 Process* disk_queue = NULL;
 Process* magnetic_tape_queue = NULL;
 
+// Representação em string para processos nas filas
+char high_priority_queue_str[15] = "";
+char low_priority_queue_str[15] = "";
+char printer_queue_str[15] = "";
+char disk_queue_str[15] = "";
+char magnetic_tape_queue_str[15] = "";
 
 int main(int argc, char **argv){
 
@@ -73,7 +90,7 @@ int main(int argc, char **argv){
     Process** processes_list = NULL;
 
     processes_list = generate_processes();
-    
+
     // Teste para saber se os processos estão sendo corretamente criados
     for (i = 0; i < process_number; i++) {
         printf("\nPID = %d\n", processes_list[i]->pid);
@@ -85,9 +102,63 @@ int main(int argc, char **argv){
         printf("start_io = %d, %d\n\n", processes_list[i]->start_io[0], processes_list[i]->duration_io[0]);
     }
 
+    printf("\n\nPressione enter para continuar...");
+    gets();
+
+
+    // Inicializando tabelas no ncurses    
+    initscr();
+    noecho();
+    cbreak();
+
+    WINDOW* pid = newwin(2 + 6, 5, 0, 0);// tam_y, tam_x, pos_y, pos_x
+    WINDOW* cpu_time = newwin(2 + 6, 10, 0, pid->_begx + pid->_maxx);
+    WINDOW* status = newwin(2 + 6, 14, 0, cpu_time->_begx + cpu_time->_maxx);
+    WINDOW* io = newwin(2 + 6, 10, 0, status->_begx + status->_maxx);
+    WINDOW* queues = newwin(2 + 6, io->_begx + io->_maxx + 1, 8, 0);
+    box(pid, 0, 0);
+    box(cpu_time, 0, 0);
+    box(status, 0, 0);
+    box(io, 0, 0);
+    box(queues, 0, 0);
+
+
+    mvwprintw(pid, 1, 1, "PID");
+    mvwprintw(cpu_time, 1, 1, "Cpu Time");
+    mvwprintw(status, 1, 1, "Status");
+    mvwprintw(io, 1, 1, "IO");
+    mvwprintw(queues, 1, 1, "Filas");
+    refresh();
+    wrefresh(pid);
+    wrefresh(cpu_time);
+    wrefresh(status);
+    wrefresh(io);
+    wrefresh(queues);
 
     while(t >= 0){
-            
+        // Preenche novamente as tabelas a cada passo do scheduler
+        for (i = 0; i < process_number; i++) {
+            mvwprintw(pid, i + 2, 1, " %d ", processes_list[i]->pid);
+            mvwprintw(status, i + 2, 1, "%s", statuses[processes_list[i]->status]);
+            mvwprintw(cpu_time, i + 2, 1, " %d ", processes_list[i]->time_cpu);
+        }
+        
+        get_queue_str(&high_priority_queue, &high_priority_queue_str);
+        get_queue_str(&low_priority_queue, &low_priority_queue_str);
+
+        mvwprintw(queues, 0 + 2, 1, "Alta Prioridade  %s", high_priority_queue_str);
+        mvwprintw(queues, 1 + 2, 1, "Baixa Prioridade %s", low_priority_queue_str);
+
+        refresh();
+        wrefresh(pid);
+        wrefresh(cpu_time);
+        wrefresh(status);
+        wrefresh(io);
+        wrefresh(queues);
+
+        // Sleep para facilitar visualização de cada passo do scheduler
+        sleep(1);
+
         /* ---------- INICIO - ADICIONA PROCESSOS NOVOS NA FILA ---------- */
 
         /* Verifica se ha processos NOVOS no instante t*/
@@ -98,7 +169,6 @@ int main(int argc, char **argv){
                 // Adiciona imediatamente na fila de alta prioridade
                 processes_list[i]->status = READY;
                 add_process(processes_list[i], &high_priority_queue);
-                printf("Adicionou %d\n", processes_list[i]->pid);
             }
             /*  TODO: verificar se algum processo novo pode entrar na fila de alta prioridade
                 levando em conta tamanho das filas. Vamos precisar de uma constante para o tamanho maximo
@@ -132,12 +202,13 @@ int main(int argc, char **argv){
         /* Se houver um processo a ser executado, realiza as operacoes da CPU */
         if(running_process != NULL){
 
-            printf("t = %d. Executando %d\n", t, running_process->pid);
             /* Realiza execucao de CPU */
             run_process(running_process, &time_slice);
         }
         else{
-            printf("Processador ocioso.\n");
+            // TODO: Alterar console para mostrar processo que está 
+            // sendo executado ou se está ocioso
+            // printf("Processador ocioso.\n");
         }
 
         /* ---------- FIM - EXECUCAO CPU ---------- */
@@ -148,8 +219,6 @@ int main(int argc, char **argv){
 
         // Verifica se todos os processos terminaram
         if (terminated == process_number){
-            printf("Todos terminaram.\n");
-            printf("%d instantes de tempo\n", t+1);
             // TODO: liberar memoria alocada dos processos
             return 0;
         }
@@ -157,7 +226,7 @@ int main(int argc, char **argv){
         // Senao, incrementa o tempo
         t++;
     }
-    printf("Hello World\n");
+    endwin();
 }
 
 /* Funcoes */
@@ -285,10 +354,6 @@ void run_process(Process* running_process, int* time_slice){
     if (io_type >= 0){
         switch (io_type){
             case DISK:
-                printf("Entrou no I/O de DISCO.\n");
-                printf("%d, %d, %d\n", running_process->start_io[0], running_process->start_io[1], running_process->start_io[2]);
-                printf("time_cpu = %d\n", running_process->time_cpu);
-                printf("pid de quem entrou no I/O = %d\n", running_process->pid);
                 queue = &disk_queue;
                 break;
             case MAGNETIC_TAPE:
@@ -308,7 +373,6 @@ void run_process(Process* running_process, int* time_slice){
     }
     // Se o tempo de serviço do processo acabou, termina o processo
     else if(running_process->time_cpu == 0){
-        printf("Terminou o %d\n", running_process->pid);
         running_process->status = TERMINATED;
         terminated++;
         // zera o time slice para indicar que houve término
@@ -316,7 +380,6 @@ void run_process(Process* running_process, int* time_slice){
     }
     // Se o time slice acabou, faz a preempcao
     else if(*time_slice == 0){
-        printf("Rolou preempcao.\n");
         // Move o processo para a fila de baixa prioridade
         add_process(running_process, &low_priority_queue);
         // Muda o status
@@ -365,12 +428,19 @@ void add_process(Process* p, Process** queue) {
 // Mostra os processos em um fila
     // Ex: 
         // print_queue(&printer_queue)
-void print_queue(Process** queue) {
-    printf("\nProcessos na fila:\n");
+void get_queue_str(Process** queue, char* str) {
     if(queue == NULL) return;
     Process* head = *queue;
+    strcpy(str, "");
     while (head != NULL) {
-        printf(" %d ", head->pid);
+        strcat(str, " ");
+        char pid[] = { head->pid + '0' };
+        printf("%s", pid);
+        strcat(str, pid);
         head = head->next;
     }
+    for (int i = strlen(str); i < 10; i++){
+        str[i] = ' ';
+    }
+    return;
 }
