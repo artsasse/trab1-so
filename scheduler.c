@@ -455,21 +455,24 @@ Process* init_process(unsigned int time_cpu, unsigned int arrival, int* start_io
     // Inicializa as arrays de I/O
     // Caso 1: Processo nao tem I/O
     if(start_io == NULL){
-        for (i = 0; i < IO_TYPES; i++) {
+        for (i = 0; i < IO_TYPES; i++)
             p->start_io[i] = -1;
-            p->duration_io[i] = -1;
-        }
     }
     // Caso 2: Processo tem I/O
     else{
         for(int i = 0; i < IO_TYPES; i++){
             // Descobre o tempo de inicio de I/O relativo ao tempo de serviço restante
-            p->start_io[i] = time_cpu - start_io[i];
+            start_io[i] = time_cpu - start_io[i];
+            // Se o tempo relativo for maior ou igual ao tempo de serviço, então não é válido
+            if (start_io[i] >= time_cpu)
+                p->start_io[i] = -1;
+            else 
+                p->start_io[i] = start_io[i];
         }
-        p->duration_io[DISK] = DISK_DURATION;
-        p->duration_io[MAGNETIC_TAPE] = MAGNETIC_TAPE_DURATION;
-        p->duration_io[PRINTER] = PRINTER_DURATION;
     }
+    p->duration_io[DISK] = DISK_DURATION;
+    p->duration_io[MAGNETIC_TAPE] = MAGNETIC_TAPE_DURATION;
+    p->duration_io[PRINTER] = PRINTER_DURATION;
     
     // Processo começa fora de qualquer fila
     p->next = NULL;
@@ -478,7 +481,6 @@ Process* init_process(unsigned int time_cpu, unsigned int arrival, int* start_io
 }
 
 //Cria uma lista de 5 processos
-    // São os processos da questão 2 da lista 2
 Process** generate_processes() {
 
     // Cria a lista de processos
@@ -510,10 +512,10 @@ Process** generate_random_processes(int amount) {
     Process** processes_list = (Process**) malloc(amount * sizeof(Process*));
 
     // Se quisermos valores fixos para testar
-    //srand(1);
+    srand(1);
 
     // Para valores aleatórios
-    srand((unsigned) time(NULL));
+    //srand((unsigned) time(NULL));
 
     // Cria um processo de cada vez aleatoriamente
     for (i = 0; i < amount; i++) {
@@ -535,8 +537,8 @@ Process** generate_random_processes(int amount) {
             choice = rand() % 2;
 
             if (choice == 0) {
-                // Intervalo do start_io -> [rand_arrival, rand_arrival + rand_time_cpu]
-                rand_aux = (rand() % rand_time_cpu) + rand_arrival;
+                // Intervalo do start_io -> [1, rand_time_cpu]
+                rand_aux = (rand() % rand_time_cpu) + 1;
 
                 // Se esse valor de início já não foi escolhido, então é válido
                 if (check_array(rand_aux, repeated_values, IO_TYPES) == 0) { 
@@ -553,6 +555,7 @@ Process** generate_random_processes(int amount) {
     return processes_list;
 }
 
+// Função para verificar se existe um elemento em um array
 int check_array(int element, int *array, int size) {
     int i;
     for (i = 0; i < size; i++) {
