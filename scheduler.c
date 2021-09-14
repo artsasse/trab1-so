@@ -121,6 +121,12 @@ int main(int argc, char **argv){
 
     int t = 0;
     int time_slice = 0;
+
+    int np;
+
+    scanf("%d", &np);
+    fflush(stdin);
+
     Process* running_process = NULL;
     Process* disk_process = NULL;
     Process* magnetic_tape_process = NULL;
@@ -134,15 +140,18 @@ int main(int argc, char **argv){
     // Teste para saber se os processos estão sendo corretamente criados
     print_all_processes(processes_list);
     
+    // Pegar o enter do stdin vindo do scanf para poder rodar o fgets
+    getchar();
+    
     printf("\n\nPressione enter para continuar...");
     char aux[2];
     fgets(aux, 2, stdin);
 
-    // Inicializando tabelas no ncurses    
     initscr();
     noecho();
     cbreak();
 
+    // Inicializando tabelas no ncurses    
     WINDOW* general_info = newwin(2 + 6, 40, 0, 0);// tam_y, tam_x, pos_y, pos_x
     WINDOW* pid = newwin(2 + 6, 5, 5, 0);
     WINDOW* cpu_time = newwin(2 + 6, 10, 5, pid->_begx + pid->_maxx);
@@ -174,7 +183,7 @@ int main(int argc, char **argv){
         wrefresh(status);
         wrefresh(io);
         wrefresh(queues);
-    }
+    } else endwin();
 
     while(t >= 0){
 
@@ -314,41 +323,45 @@ int main(int argc, char **argv){
                 exec_proccess_id = running_process->pid;
                 exec_proccess_label = "Executando";
             } else {
-                exec_proccess_id = 0;
+                exec_proccess_id = -1;
                 exec_proccess_label = "Ocioso    ";
             }
             mvwprintw(general_info, 1, 0, "Processador:    - %s ", exec_proccess_label);
             if(exec_proccess_id >= 0) mvwprintw(general_info, 1, 29, "%d ", exec_proccess_id);
+            else mvwprintw(general_info, 1, 29, "  ", exec_proccess_id);
 
             if(disk_process) {
                 exec_proccess_id = disk_process->pid;
                 exec_proccess_label = "Executando";
             } else {
-                exec_proccess_id = 0;
+                exec_proccess_id = -1;
                 exec_proccess_label = "Ocioso    ";
             }
             mvwprintw(general_info, 2, 0, "Disco:          - %s ", exec_proccess_label);
-            if(exec_proccess_id >= 0) mvwprintw(general_info, 1, 29, "%d ", exec_proccess_id);
+            if(exec_proccess_id >= 0) mvwprintw(general_info, 2, 29, "%d ", exec_proccess_id);
+            else mvwprintw(general_info, 2, 29, "  ", exec_proccess_id);
 
             if(printer_process) {
-                exec_proccess_id = running_process->pid;
+                exec_proccess_id = printer_process->pid;
                 exec_proccess_label = "Executando";
             } else {
-                exec_proccess_id = 0;
+                exec_proccess_id = -1;
                 exec_proccess_label = "Ocioso    ";
             }
             mvwprintw(general_info, 3, 0, "Impressora:     - %s ", exec_proccess_label);
-            if(exec_proccess_id >= 0) mvwprintw(general_info, 1, 29, "%d ", exec_proccess_id);
+            if(exec_proccess_id >= 0) mvwprintw(general_info, 3, 29, "%d ", exec_proccess_id);
+            else mvwprintw(general_info, 3, 29, "  ", exec_proccess_id);
 
             if(magnetic_tape_process) {
-                exec_proccess_id = running_process->pid;
+                exec_proccess_id = magnetic_tape_process->pid;
                 exec_proccess_label = "Executando";
             } else {
-                exec_proccess_id = 0;
+                exec_proccess_id = -1;
                 exec_proccess_label = "Ocioso    ";
             }
             mvwprintw(general_info, 4, 0, "Fita magnetica: - %s ", exec_proccess_label);
-            if(exec_proccess_id >= 0) mvwprintw(general_info, 1, 29, "%d ", exec_proccess_id);
+            if(exec_proccess_id >= 0) mvwprintw(general_info, 4, 29, "%d ", exec_proccess_id);
+            else mvwprintw(general_info, 4, 29, "  ", exec_proccess_id);
 
             for (i = 0; i < process_number; i++) {
                 mvwprintw(pid, i + 2, 1, " %d ", processes_list[i]->pid);
@@ -413,12 +426,13 @@ int main(int argc, char **argv){
             t = -1;
         }
     }
-    if(use_ncurses) mvprintw(queues->_begy + queues->_maxy + 2, 0, "Pressione enter para finalizar...");
-    else printf("Pressione enter para finalizar...");
-    refresh();
+    if(use_ncurses) {
+        mvprintw(queues->_begy + queues->_maxy + 2, 0, "Pressione enter para finalizar...");
+        refresh();
+        endwin();
+    } else printf("Pressione enter para finalizar...");
 
     fgets(aux, 2, stdin);
-    endwin();
 
     return 0;
 }
