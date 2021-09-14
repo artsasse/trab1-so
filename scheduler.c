@@ -7,6 +7,7 @@
 #include <stdarg.h>
 
 // Controles de estados
+#define NONE -1
 #define NEW 0
 #define READY 1
 #define RUNNING 2
@@ -363,26 +364,31 @@ int main(int argc, char **argv){
             if(exec_proccess_id >= 0) mvwprintw(general_info, 4, 29, "%d ", exec_proccess_id);
             else mvwprintw(general_info, 4, 29, "  ", exec_proccess_id);
 
+            int ready_proccess_counter = 0;
             for (i = 0; i < process_number; i++) {
-                mvwprintw(pid, i + 2, 1, " %d ", processes_list[i]->pid);
-                mvwprintw(status, i + 2, 1, "%s", statuses[processes_list[i]->status]);
-                mvwprintw(cpu_time, i + 2, 1, " %d ", processes_list[i]->time_cpu);
-                
-                if(disk_process && processes_list[i]->pid ==  disk_process->pid) {
-                    io_label = 1; 
-                    duration_io = processes_list[i]->duration_io[DISK];
+                if(processes_list[i]->status >= 0) {
+                    mvwprintw(pid, ready_proccess_counter + 2, 1, " %d ", processes_list[i]->pid);
+                    mvwprintw(status, ready_proccess_counter + 2, 1, "%s", statuses[processes_list[i]->status]);
+                    mvwprintw(cpu_time, ready_proccess_counter + 2, 1, " %d ", processes_list[i]->time_cpu);
+                    
+                    if(disk_process && processes_list[i]->pid ==  disk_process->pid) {
+                        io_label = 1; 
+                        duration_io = processes_list[i]->duration_io[DISK];
+                    }
+                    if(magnetic_tape_process && processes_list[i]->pid ==  magnetic_tape_process->pid) {
+                        io_label = 2;
+                        duration_io = processes_list[i]->duration_io[MAGNETIC_TAPE];
+                    }
+                    if(printer_process && processes_list[i]->pid ==  printer_process->pid) {
+                        io_label = 3;
+                        duration_io = processes_list[i]->duration_io[PRINTER];
+                    }
+                    mvwprintw(io, ready_proccess_counter + 2, 1, "%s %d ", io_labels[io_label], duration_io);
+                    io_label = 0;
+                    duration_io = 0;
+
+                    ready_proccess_counter++;
                 }
-                if(magnetic_tape_process && processes_list[i]->pid ==  magnetic_tape_process->pid) {
-                    io_label = 2;
-                    duration_io = processes_list[i]->duration_io[MAGNETIC_TAPE];
-                }
-                if(printer_process && processes_list[i]->pid ==  printer_process->pid) {
-                    io_label = 3;
-                    duration_io = processes_list[i]->duration_io[PRINTER];
-                }
-                mvwprintw(io, i + 2, 1, "%s %d ", io_labels[io_label], duration_io);
-                io_label = 0;
-                duration_io = 0;
             }
             
             get_queue_str(&high_priority_queue, &queue_str);
@@ -427,10 +433,11 @@ int main(int argc, char **argv){
         }
     }
     if(use_ncurses) {
-        mvprintw(queues->_begy + queues->_maxy + 2, 0, "Pressione enter para finalizar...");
         refresh();
         endwin();
-    } else printf("Pressione enter para finalizar...");
+    } 
+    
+    printf("Pressione enter para finalizar...");
 
     fgets(aux, 2, stdin);
 
@@ -447,7 +454,7 @@ Process* init_process(unsigned int time_cpu, unsigned int arrival, int* start_io
 
     // O processo recebe suas características
     p->pid = process_number++;
-    p->status = NEW;
+    p->status = NONE;
     p->priority = HIGH;
     p->time_cpu = time_cpu;
     p->arrival = arrival;
