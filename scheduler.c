@@ -40,6 +40,7 @@
 #define RESET "\e[0m"
 #define RED "\e[0;31m"
 #define YELLOW "\e[0;33m"
+#define BOLD_WHITE "\e[1;37m"
 
 // Label status
 char statuses[5][10] = {
@@ -191,7 +192,7 @@ int main(int argc, char **argv){
 
         /* ---------- INICIO - ADICIONA PROCESSOS NOVOS NA FILA ---------- */
 
-        print("NOVOS:\n");
+        print(BOLD_WHITE "NOVOS:\n" RESET);
         /* Verifica se ha processos NOVOS no instante t*/
         for (i = 0; i < process_number; i++){
 
@@ -200,6 +201,7 @@ int main(int argc, char **argv){
                 processes_list[i]->status = NEW;
                 // Adiciona imediatamente na fila de alta prioridade
                 processes_list[i]->status = READY;
+                processes_list[i]->priority = HIGH;
                 add_process(processes_list[i], &high_priority_queue);
                 print("- ");
                 print("%d ", processes_list[i]->pid);
@@ -212,7 +214,7 @@ int main(int argc, char **argv){
         print("\n");
 
         // print das filas
-        print("FILAS: \n");
+        print(BOLD_WHITE "FILAS: \n" RESET);
         print_queue(&high_priority_queue, "CPU_H");
         print_queue(&low_priority_queue, "CPU_L");
         print_queue(&disk_queue, "DISK ");
@@ -225,7 +227,7 @@ int main(int argc, char **argv){
         /* ---------- INICIO - SELECIONA PROCESSOS ---------- */
 
         // print da selecao de processos
-        print("SELEÇÃO:\n");
+        print(BOLD_WHITE "SELEÇÃO:\n" RESET);
 
         // Seleciona o processo a ser executado na CPU.
         // Quando time_slice == 0, houve preempcao, bloqueio ou término. Logo, precisamos de um novo processo.
@@ -267,7 +269,7 @@ int main(int argc, char **argv){
 
         /* ---------- INICIO - EXECUCAO CPU ---------- */
 
-        print("EXECUÇÃO:\n");
+        print(BOLD_WHITE "EXECUÇÃO:\n" RESET);
 
         /* Se houver um processo a ser executado, realiza as operacoes da CPU */
         if(running_process != NULL){
@@ -641,6 +643,7 @@ void run_process(Process* running_process, int* time_slice){
         print(YELLOW "Preempcao de %d.\n" RESET, running_process->pid);
         // Move o processo para a fila de baixa prioridade
         add_process(running_process, &low_priority_queue);
+        running_process->priority = LOW;
         // Muda o status
         running_process->status = READY;
     }
@@ -745,11 +748,15 @@ Process* run_io(Process* io_process, unsigned int io_index){
         else{
             io_process->status = READY;
             // Se é DISCO, volta para fila de BAIXA prioridade
-            if(io_index == DISK)
+            if(io_index == DISK){
                 add_process(io_process, &low_priority_queue);
+                io_process->priority = LOW;
+            }
             // Senao, volta para a fila de ALTA prioridade
-            else if((io_index == MAGNETIC_TAPE) || (io_index == PRINTER))
+            else if((io_index == MAGNETIC_TAPE) || (io_index == PRINTER)){
                 add_process(io_process, &high_priority_queue);
+                io_process->priority = HIGH;
+            }
         }
         
         switch(io_index){
