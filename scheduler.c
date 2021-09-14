@@ -3,6 +3,7 @@
 #include <time.h>
 #include <ncurses.h>
 #include <string.h>
+#include <unistd.h>
 
 // Controles de estados
 #define NEW 0
@@ -84,6 +85,13 @@ char magnetic_tape_queue_str[15] = "";
 int main(int argc, char **argv){
 
     int i;
+
+    // Flag para sinalizar se o programa deve utilizar o ncurses
+    int use_ncurses = FALSE;
+    if(argc>=2)
+        for(i = 1; i < argc; i++)
+            if(strcmp(argv[i], "-nc") == 0) use_ncurses = TRUE;
+
     int t = 0;
     int time_slice = 0;
     Process* running_process = NULL;
@@ -103,10 +111,10 @@ int main(int argc, char **argv){
     }
 
     printf("\n\nPressione enter para continuar...");
-    gets();
+    char aux[2];
+    fgets(aux, 2, stdin);
 
 
-    // Inicializando tabelas no ncurses    
     initscr();
     noecho();
     cbreak();
@@ -116,45 +124,51 @@ int main(int argc, char **argv){
     WINDOW* status = newwin(2 + 6, 14, 0, cpu_time->_begx + cpu_time->_maxx);
     WINDOW* io = newwin(2 + 6, 10, 0, status->_begx + status->_maxx);
     WINDOW* queues = newwin(2 + 6, io->_begx + io->_maxx + 1, 8, 0);
-    box(pid, 0, 0);
-    box(cpu_time, 0, 0);
-    box(status, 0, 0);
-    box(io, 0, 0);
-    box(queues, 0, 0);
+
+    if(use_ncurses){
+        // Inicializando tabelas no ncurses
+        box(pid, 0, 0);
+        box(cpu_time, 0, 0);
+        box(status, 0, 0);
+        box(io, 0, 0);
+        box(queues, 0, 0);
 
 
-    mvwprintw(pid, 1, 1, "PID");
-    mvwprintw(cpu_time, 1, 1, "Cpu Time");
-    mvwprintw(status, 1, 1, "Status");
-    mvwprintw(io, 1, 1, "IO");
-    mvwprintw(queues, 1, 1, "Filas");
-    refresh();
-    wrefresh(pid);
-    wrefresh(cpu_time);
-    wrefresh(status);
-    wrefresh(io);
-    wrefresh(queues);
-
-    while(t >= 0){
-        // Preenche novamente as tabelas a cada passo do scheduler
-        for (i = 0; i < process_number; i++) {
-            mvwprintw(pid, i + 2, 1, " %d ", processes_list[i]->pid);
-            mvwprintw(status, i + 2, 1, "%s", statuses[processes_list[i]->status]);
-            mvwprintw(cpu_time, i + 2, 1, " %d ", processes_list[i]->time_cpu);
-        }
-        
-        get_queue_str(&high_priority_queue, &high_priority_queue_str);
-        get_queue_str(&low_priority_queue, &low_priority_queue_str);
-
-        mvwprintw(queues, 0 + 2, 1, "Alta Prioridade  %s", high_priority_queue_str);
-        mvwprintw(queues, 1 + 2, 1, "Baixa Prioridade %s", low_priority_queue_str);
-
+        mvwprintw(pid, 1, 1, "PID");
+        mvwprintw(cpu_time, 1, 1, "Cpu Time");
+        mvwprintw(status, 1, 1, "Status");
+        mvwprintw(io, 1, 1, "IO");
+        mvwprintw(queues, 1, 1, "Filas");
         refresh();
         wrefresh(pid);
         wrefresh(cpu_time);
         wrefresh(status);
         wrefresh(io);
         wrefresh(queues);
+    }
+
+    while(t >= 0){
+        // Preenche novamente as tabelas a cada passo do scheduler
+        if(use_ncurses){
+            for (i = 0; i < process_number; i++) {
+                mvwprintw(pid, i + 2, 1, " %d ", processes_list[i]->pid);
+                mvwprintw(status, i + 2, 1, "%s", statuses[processes_list[i]->status]);
+                mvwprintw(cpu_time, i + 2, 1, " %d ", processes_list[i]->time_cpu);
+            }
+            
+            get_queue_str(&high_priority_queue, &high_priority_queue_str);
+            get_queue_str(&low_priority_queue, &low_priority_queue_str);
+
+            mvwprintw(queues, 0 + 2, 1, "Alta Prioridade  %s", high_priority_queue_str);
+            mvwprintw(queues, 1 + 2, 1, "Baixa Prioridade %s", low_priority_queue_str);
+
+            refresh();
+            wrefresh(pid);
+            wrefresh(cpu_time);
+            wrefresh(status);
+            wrefresh(io);
+            wrefresh(queues);
+        }
 
         // Sleep para facilitar visualização de cada passo do scheduler
         sleep(1);
