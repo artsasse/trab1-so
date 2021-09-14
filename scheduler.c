@@ -43,11 +43,19 @@
 
 // Label status
 char statuses[5][10] = {
-    {"NEW"},
-    {"READY"},
+    {"NEW    "},
+    {"READY  "},
     {"RUNNING"},
     {"WAITING"},
     {"TERMINATED"},
+};
+
+// Label tipos I/O
+char io_labels[4][14] = {
+    {"-------------"},
+    {"DISK         "},
+    {"MAGNETIC_TAPE"},
+    {"PRINTER      "}
 };
 
 // Variável auxiliar para contar o número de processos
@@ -135,11 +143,16 @@ int main(int argc, char **argv){
     noecho();
     cbreak();
 
-    WINDOW* pid = newwin(2 + 6, 5, 0, 0);// tam_y, tam_x, pos_y, pos_x
-    WINDOW* cpu_time = newwin(2 + 6, 10, 0, pid->_begx + pid->_maxx);
-    WINDOW* status = newwin(2 + 6, 14, 0, cpu_time->_begx + cpu_time->_maxx);
-    WINDOW* io = newwin(2 + 6, 10, 0, status->_begx + status->_maxx);
-    WINDOW* queues = newwin(2 + 6, io->_begx + io->_maxx + 1, 8, 0);
+    WINDOW* general_info = newwin(2 + 6, 40, 0, 0);// tam_y, tam_x, pos_y, pos_x
+    WINDOW* pid = newwin(2 + 6, 5, 5, 0);
+    WINDOW* cpu_time = newwin(2 + 6, 10, 5, pid->_begx + pid->_maxx);
+    WINDOW* status = newwin(2 + 6, 14, 5, cpu_time->_begx + cpu_time->_maxx);
+    WINDOW* io = newwin(2 + 6, 19, 5, status->_begx + status->_maxx);
+    WINDOW* queues = newwin(2 + 8, io->_begx + io->_maxx + 1, io->_begy + io->_maxy + 1, 0);
+    int io_label = 0;
+    int duration_io = 0;
+    char* exec_proccess_label;
+    int exec_proccess_id = -1;
 
     if(use_ncurses){
         // Inicializando tabelas no ncurses
@@ -155,6 +168,7 @@ int main(int argc, char **argv){
         mvwprintw(io, 1, 1, "IO");
         mvwprintw(queues, 1, 1, "Filas");
         refresh();
+        wrefresh(general_info);
         wrefresh(pid);
         wrefresh(cpu_time);
         wrefresh(status);
@@ -163,33 +177,6 @@ int main(int argc, char **argv){
     }
 
     while(t >= 0){
-        
-        // Preenche novamente as tabelas a cada passo do scheduler
-        if(use_ncurses){
-            noecho();
-
-            for (i = 0; i < process_number; i++) {
-                mvwprintw(pid, i + 2, 1, " %d ", processes_list[i]->pid);
-                mvwprintw(status, i + 2, 1, "%s", statuses[processes_list[i]->status]);
-                mvwprintw(cpu_time, i + 2, 1, " %d ", processes_list[i]->time_cpu);
-            }
-            
-            get_queue_str(&high_priority_queue, &queue_str);
-            mvwprintw(queues, 0 + 2, 1, "Alta Prioridade  %s", queue_str);
-
-            get_queue_str(&low_priority_queue, &queue_str);
-            mvwprintw(queues, 1 + 2, 1, "Baixa Prioridade %s", queue_str);
-
-            refresh();
-            wrefresh(pid);
-            wrefresh(cpu_time);
-            wrefresh(status);
-            wrefresh(io);
-            wrefresh(queues);
-
-            // Sleep para facilitar visualização de cada passo do scheduler
-            sleep(1);
-        }
 
         print("\n---------- Instante %d ----------\n\n", t);
 
@@ -317,20 +304,123 @@ int main(int argc, char **argv){
 
         print("\n");
 
-        /* ---------- FIM - EXECUCAO I/O ---------- */
+        // Preenche novamente as tabelas a cada passo do scheduler
+        if(use_ncurses){
+            noecho();
+            
+            mvwprintw(general_info, 0, 0, "u.t:            - %d", t);
+
+            if(running_process) {
+                exec_proccess_id = running_process->pid;
+                exec_proccess_label = "Executando";
+            } else {
+                exec_proccess_id = 0;
+                exec_proccess_label = "Ocioso    ";
+            }
+            mvwprintw(general_info, 1, 0, "Processador:    - %s ", exec_proccess_label);
+            if(exec_proccess_id >= 0) mvwprintw(general_info, 1, 29, "%d ", exec_proccess_id);
+
+            if(disk_process) {
+                exec_proccess_id = disk_process->pid;
+                exec_proccess_label = "Executando";
+            } else {
+                exec_proccess_id = 0;
+                exec_proccess_label = "Ocioso    ";
+            }
+            mvwprintw(general_info, 2, 0, "Disco:          - %s ", exec_proccess_label);
+            if(exec_proccess_id >= 0) mvwprintw(general_info, 1, 29, "%d ", exec_proccess_id);
+
+            if(printer_process) {
+                exec_proccess_id = running_process->pid;
+                exec_proccess_label = "Executando";
+            } else {
+                exec_proccess_id = 0;
+                exec_proccess_label = "Ocioso    ";
+            }
+            mvwprintw(general_info, 3, 0, "Impressora:     - %s ", exec_proccess_label);
+            if(exec_proccess_id >= 0) mvwprintw(general_info, 1, 29, "%d ", exec_proccess_id);
+
+            if(magnetic_tape_process) {
+                exec_proccess_id = running_process->pid;
+                exec_proccess_label = "Executando";
+            } else {
+                exec_proccess_id = 0;
+                exec_proccess_label = "Ocioso    ";
+            }
+            mvwprintw(general_info, 4, 0, "Fita magnetica: - %s ", exec_proccess_label);
+            if(exec_proccess_id >= 0) mvwprintw(general_info, 1, 29, "%d ", exec_proccess_id);
+
+            for (i = 0; i < process_number; i++) {
+                mvwprintw(pid, i + 2, 1, " %d ", processes_list[i]->pid);
+                mvwprintw(status, i + 2, 1, "%s", statuses[processes_list[i]->status]);
+                mvwprintw(cpu_time, i + 2, 1, " %d ", processes_list[i]->time_cpu);
+                
+                if(disk_process && processes_list[i]->pid ==  disk_process->pid) {
+                    io_label = 1; 
+                    duration_io = processes_list[i]->duration_io[DISK];
+                }
+                if(magnetic_tape_process && processes_list[i]->pid ==  magnetic_tape_process->pid) {
+                    io_label = 2;
+                    duration_io = processes_list[i]->duration_io[MAGNETIC_TAPE];
+                }
+                if(printer_process && processes_list[i]->pid ==  printer_process->pid) {
+                    io_label = 3;
+                    duration_io = processes_list[i]->duration_io[PRINTER];
+                }
+                mvwprintw(io, i + 2, 1, "%s %d ", io_labels[io_label], duration_io);
+                io_label = 0;
+                duration_io = 0;
+            }
+            
+            get_queue_str(&high_priority_queue, &queue_str);
+            mvwprintw(queues, 0 + 2, 1, "Alta Prioridade  - %s", queue_str);
+
+            get_queue_str(&low_priority_queue, &queue_str);
+            mvwprintw(queues, 1 + 2, 1, "Baixa Prioridade - %s", queue_str);
+
+            get_queue_str(&disk_queue, &queue_str);
+            mvwprintw(queues, 3 + 2, 1, "Disco            - %s", queue_str);
+
+            get_queue_str(&magnetic_tape_queue, &queue_str);
+            mvwprintw(queues, 4 + 2, 1, "Fita magnetica   - %s", queue_str);
+
+            get_queue_str(&printer_queue, &queue_str);
+            mvwprintw(queues, 5 + 2, 1, "Impressora       - %s", queue_str);
+
+            refresh();
+            wrefresh(general_info);
+            wrefresh(pid);
+            wrefresh(cpu_time);
+            wrefresh(status);
+            wrefresh(io);
+            wrefresh(queues);
+
+            // Sleep para facilitar visualização de cada passo do scheduler
+            sleep(1);
+        }
+                
+                /* ---------- FIM - EXECUCAO I/O ---------- */
+
+
+        // Senao, incrementa o tempo
+        t++;
 
         // Verifica se todos os processos terminaram
         if (terminated == process_number){
             print("Todos terminaram.\n");
             print("%d instantes de tempo\n\n", t+1);
             // TODO: liberar memoria alocada dos processos
-            return 0;
+            t = -1;
         }
-
-        // Senao, incrementa o tempo
-        t++;
     }
-    // endwin();
+    if(use_ncurses) mvprintw(queues->_begy + queues->_maxy + 2, 0, "Pressione enter para finalizar...");
+    else printf("Pressione enter para finalizar...");
+    refresh();
+
+    fgets(aux, 2, stdin);
+    endwin();
+
+    return 0;
 }
 /* Funcoes */
 
