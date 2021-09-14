@@ -85,6 +85,7 @@ Process* init_process(unsigned int time_cpu, unsigned int arrival, int* start_io
 Process** generate_processes();
 Process** generate_random_processes(int amount);
 int check_array(int element, int *array, int size);
+void free_processes(Process** processes_list);
 void add_process(Process* p, Process** queue);
 Process* remove_process(Process** queue);
 void get_queue_str(Process** queue, char* str);
@@ -113,29 +114,28 @@ int use_ncurses = FALSE;
 int main(int argc, char **argv){
 
     int i;
-
-    // Verifica se o programa foi executado com a flag do ncurses
-    if(argc>=2)
-        for(i = 1; i < argc; i++)
-            if(strcmp(argv[i], "-nc") == 0) use_ncurses = TRUE;
-
     int t = 0;
     int time_slice = 0;
-
     int np;
-
-    scanf("%d", &np);
-    fflush(stdin);
-
     Process* running_process = NULL;
     Process* disk_process = NULL;
     Process* magnetic_tape_process = NULL;
     Process* printer_process = NULL;
     Process** processes_list = NULL;
 
+    // Verifica se o programa foi executado com a flag do ncurses
+    if(argc>=2)
+        for(i = 1; i < argc; i++)
+            if(strcmp(argv[i], "-nc") == 0) use_ncurses = TRUE;
+
+    // Armazena o número de processos que devem ser criados
+    printf("Número de processos criados: ");
+    scanf("%d", &np);
+    fflush(stdin);
+
     //processes_list = generate_processes();
     //Processos aleatórios
-    processes_list = generate_random_processes(5);
+    processes_list = generate_random_processes(np);
     
     // Teste para saber se os processos estão sendo corretamente criados
     print_all_processes(processes_list);
@@ -422,7 +422,7 @@ int main(int argc, char **argv){
         if (terminated == process_number){
             print("Todos terminaram.\n");
             print("%d instantes de tempo\n\n", t+1);
-            // TODO: liberar memoria alocada dos processos
+            free_processes(processes_list);
             t = -1;
         }
     }
@@ -563,6 +563,17 @@ int check_array(int element, int *array, int size) {
             return 1;
     }
     return 0;
+}
+
+// Função para liberar a memória alocada nos processos
+void free_processes(Process** processes_list) {
+    int i;
+
+    for (i = 0; i < process_number; i++) {
+        free(processes_list[i]);
+    }
+
+    free(processes_list);
 }
 
 /*  Retorna o ponteiro do proximo processo a ser executado. 
