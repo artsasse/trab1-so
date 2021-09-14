@@ -22,6 +22,15 @@
 #define MAGNETIC_TAPE 1
 #define PRINTER 2
 
+// Maior valor possível para time_cpu e arrival
+#define MAX_TIME_CPU 20
+#define MAX_ARRIVAL 10
+
+// Durações de cada tipo de I/O
+#define DISK_DURATION 4;
+#define MAGNETIC_TAPE_DURATION 8;
+#define PRINTER_DURATION 12;
+
 
 // Variável auxiliar para contar o número de processos
 int process_number = 0;
@@ -46,10 +55,10 @@ typedef struct process {
 } Process;
 
 // Prototypes
-
-Process* init_process(unsigned int time_cpu, unsigned int arrival, int* start_io, int* duration_io);
+Process* init_process(unsigned int time_cpu, unsigned int arrival, int* start_io);
 Process** generate_processes();
 Process** generate_random_processes(int amount);
+int check_array(int element, int *array, int size);
 void add_process(Process* p, Process** queue);
 Process* remove_process(Process** queue);
 void print_queue(Process** queue);
@@ -74,7 +83,9 @@ int main(int argc, char **argv){
     Process* running_process = NULL;
     Process** processes_list = NULL;
 
-    processes_list = generate_processes();
+    //processes_list = generate_processes();
+    //Processos aleatórios
+    processes_list = generate_random_processes(5);
     
     // Teste para saber se os processos estão sendo corretamente criados
     print_all_processes(processes_list);
@@ -156,7 +167,7 @@ int main(int argc, char **argv){
 /* Funcoes */
 
 // Cria um processo com as informações passadas
-Process* init_process(unsigned int time_cpu, unsigned int arrival, int* start_io, int* duration_io) {
+Process* init_process(unsigned int time_cpu, unsigned int arrival, int* start_io) {
 
     int i;
     // Inicializa um processo
@@ -179,12 +190,13 @@ Process* init_process(unsigned int time_cpu, unsigned int arrival, int* start_io
     }
     // Caso 2: Processo tem I/O
     else{
-        for(i = 0; i < IO_TYPES; i++) {
+        for (i = 0; i < IO_TYPES; i++) {
             p->start_io[i] = start_io[i];
-            p->duration_io[i] = duration_io[i];
         }
+        p->duration_io[DISK] = DISK_DURATION;
+        p->duration_io[MAGNETIC_TAPE] = MAGNETIC_TAPE_DURATION;
+        p->duration_io[PRINTER] = PRINTER_DURATION;
     }
-    
     
     // Processo começa fora de qualquer fila
     p->next = NULL;
@@ -198,39 +210,84 @@ Process** generate_processes() {
 
     // Cria a lista de processos
     Process** processes_list = (Process**) malloc(5 * sizeof(Process*));
-    int start_io0[3] = {4, -1, -1};
-    int duration_io0[3] = {2, -1, -1};
-    int start_io4[3] = {-1, 2, 5};
-    int duration_io4[3] = {-1, 2, 3};
 
-    processes_list[0] = init_process(8, 1, start_io0, duration_io0);
-    processes_list[1] = init_process(3, 2, NULL, NULL);
-    processes_list[2] = init_process(10, 4, NULL, NULL);
-    processes_list[3] = init_process(1, 4, NULL, NULL);
-    processes_list[4] = init_process(2, 11, start_io4, duration_io4);
+    // Valores para I/O
+    int start_io0[IO_TYPES] = {4, -1, -1};
+    int start_io4[IO_TYPES] = {-1, 2, 5};
+
+    processes_list[0] = init_process(8, 1, start_io0);
+    processes_list[1] = init_process(3, 2, NULL);
+    processes_list[2] = init_process(10, 4, NULL);
+    processes_list[3] = init_process(1, 4, NULL);
+    processes_list[4] = init_process(2, 11, start_io4);
     
     return processes_list;
 }
 
 // Gera uma lista com processos criados aleatoriamente
-// Process** generate_random_processes(int amount) {
+Process** generate_random_processes(int amount) {
 
-//     int i;
+    int i, j;
+    int rand_time_cpu;
+    int rand_arrival;
+    int rand_aux;
+    int choice;
 
-//     // Cria a lista de processos
-//     Process** processes_list = (Process**) malloc(amount * sizeof(Process*));
+    // Cria a lista de processos
+    Process** processes_list = (Process**) malloc(amount * sizeof(Process*));
 
-//     srand(time(NULL));
+    // Se quisermos valores fixos para testar
+    //srand(1);
 
-//     // Cria um processo de cada vez aleatoriamente
-//     for (i = 0; i < amount; i++) {
-//         /* Na criação, a priority está no intervalo [1,10], 
-//            time_cpu no intervalo [1,20] e arrival no intervalo [0,10] */
-//         processes_list[i] = init_process((rand() % 9)+1, (rand() % 19)+1, rand() % 11);
-//     }
+    // Para valores aleatórios
+    srand((unsigned) time(NULL));
 
-//     return processes_list;
-// }
+    // Cria um processo de cada vez aleatoriamente
+    for (i = 0; i < amount; i++) {
+
+        // Inicializa o vetor de início de I/O
+        int start_io[IO_TYPES] = {-1, -1, -1};
+
+        // Vetor com os valores repetidos até aqui para que duas operações de I/O não iniciem no mesmo instante
+        int repeated_values[IO_TYPES];
+
+        // Intervalo do time_cpu -> [1,MAX_TIME_CPU]
+        rand_time_cpu = (rand() % MAX_TIME_CPU) + 1;
+
+        // Intervalo do arrival -> [0,MAX_ARRIVAL]
+        rand_arrival = rand() % (MAX_ARRIVAL + 1);
+        
+        for (j = 0; j < IO_TYPES; j++) {
+            // Variável para escolher aleatoriamente se o processo terá I/O
+            choice = rand() % 2;
+
+            if (choice == 0) {
+                // Intervalo do start_io -> [rand_arrival, rand_arrival + rand_time_cpu]
+                rand_aux = (rand() % rand_time_cpu) + rand_arrival;
+
+                // Se esse valor de início já não foi escolhido, então é válido
+                if (check_array(rand_aux, repeated_values, IO_TYPES) == 0) { 
+                    start_io[j] = rand_aux;
+                    repeated_values[j] = rand_aux;
+                }
+            }  
+        }
+        
+        // Cria o processo
+        processes_list[i] = init_process(rand_time_cpu, rand_arrival, start_io);
+    }
+
+    return processes_list;
+}
+
+int check_array(int element, int *array, int size) {
+    int i;
+    for (i = 0; i < size; i++) {
+        if (array[i] == element) 
+            return 1;
+    }
+    return 0;
+}
 
 /*  Retorna o ponteiro do proximo processo a ser executado. 
     Retorna NULL se nao houver processos nas filas. */
