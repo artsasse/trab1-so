@@ -58,7 +58,7 @@ typedef struct process {
 
 // Prototypes
 
-Process* init_process(int priority, unsigned int time_cpu, unsigned int arrival, int* start_io, int* duration_io);
+Process* init_process(unsigned int time_cpu, unsigned int arrival, int* start_io, int* duration_io);
 Process** generate_processes();
 Process** generate_random_processes(int amount);
 void add_process(Process* p, Process** queue);
@@ -66,6 +66,8 @@ Process* remove_process(Process** queue);
 void get_queue_str(Process** queue, char* str);
 Process* get_running_process(void);
 void run_process(Process* running_process, int* time_slice);
+void print_process(Process* process);
+void print_all_processes(Process** processes_list);
 
 // Filas
 Process* high_priority_queue = NULL;
@@ -92,6 +94,8 @@ int main(int argc, char **argv){
     processes_list = generate_processes();
 
     // Teste para saber se os processos estão sendo corretamente criados
+    print_all_processes(processes_list);
+
     for (i = 0; i < process_number; i++) {
         printf("\nPID = %d\n", processes_list[i]->pid);
         if (processes_list[i]->status == NEW)
@@ -104,7 +108,6 @@ int main(int argc, char **argv){
 
     printf("\n\nPressione enter para continuar...");
     gets();
-
 
     // Inicializando tabelas no ncurses    
     initscr();
@@ -206,6 +209,7 @@ int main(int argc, char **argv){
             run_process(running_process, &time_slice);
         }
         else{
+
             // TODO: Alterar console para mostrar processo que está 
             // sendo executado ou se está ocioso
             // printf("Processador ocioso.\n");
@@ -232,29 +236,30 @@ int main(int argc, char **argv){
 /* Funcoes */
 
 // Cria um processo com as informações passadas
-Process* init_process(int priority, unsigned int time_cpu, unsigned int arrival, int* start_io, int* duration_io) {
+Process* init_process(unsigned int time_cpu, unsigned int arrival, int* start_io, int* duration_io) {
 
+    int i;
     // Inicializa um processo
     Process* p = (Process*) malloc(sizeof(Process));
 
     // O processo recebe suas características
     p->pid = process_number++;
     p->status = NEW;
-    p->priority = priority;
+    p->priority = HIGH;
     p->time_cpu = time_cpu;
     p->arrival = arrival;
 
     // Inicializa as arrays de I/O
     // Caso 1: Processo nao tem I/O
     if(start_io == NULL){
-        for(int i = 0; i < IO_TYPES; i++){
+        for (i = 0; i < IO_TYPES; i++) {
             p->start_io[i] = -1;
             p->duration_io[i] = -1;
         }
     }
     // Caso 2: Processo tem I/O
     else{
-        for(int i = 0; i < IO_TYPES; i++){
+        for(i = 0; i < IO_TYPES; i++) {
             p->start_io[i] = start_io[i];
             p->duration_io[i] = duration_io[i];
         }
@@ -273,14 +278,16 @@ Process** generate_processes() {
 
     // Cria a lista de processos
     Process** processes_list = (Process**) malloc(5 * sizeof(Process*));
-    // int start_io[3] = {4, -1, -1};
-    // int duration_io[3] = {2, -1, -1};
+    int start_io0[3] = {4, -1, -1};
+    int duration_io0[3] = {2, -1, -1};
+    int start_io4[3] = {-1, 2, 5};
+    int duration_io4[3] = {-1, 2, 3};
 
-    processes_list[0] = init_process(HIGH, 8, 1, NULL, NULL);
-    processes_list[1] = init_process(HIGH, 3, 2, NULL, NULL);
-    processes_list[2] = init_process(HIGH, 10, 4, NULL, NULL);
-    processes_list[3] = init_process(HIGH, 1, 4, NULL, NULL);
-    processes_list[4] = init_process(HIGH, 2, 11, NULL, NULL);
+    processes_list[0] = init_process(8, 1, start_io0, duration_io0);
+    processes_list[1] = init_process(3, 2, NULL, NULL);
+    processes_list[2] = init_process(10, 4, NULL, NULL);
+    processes_list[3] = init_process(1, 4, NULL, NULL);
+    processes_list[4] = init_process(2, 11, start_io4, duration_io4);
     
     return processes_list;
 }
@@ -443,4 +450,66 @@ void get_queue_str(Process** queue, char* str) {
         str[i] = ' ';
     }
     return;
+}
+
+// Imprime as características de um processo
+void print_process(Process* process) {
+    printf("\nProcesso %d:\n", process->pid);
+    printf("\tStatus = ");
+    switch (process->status) {
+        case 0:
+            printf("NEW\n");
+            break;
+        case 1:
+            printf("READY\n");
+            break;
+        case 2:
+            printf("RUNNING\n");
+            break;
+        case 3:
+            printf("WAITING\n");
+            break;
+        case 4:
+            printf("TERMINATED\n");
+            break;
+    }
+    printf("\tPriority = ");
+    switch (process->priority) {
+        case 0:
+            printf("LOW\n");
+            break;
+        case 1:
+            printf("HIGH\n");
+            break;
+    }
+    printf("\tCPU Time = %d\n", process->time_cpu);
+    printf("\tArrival = %d\n", process->arrival);
+    for (int i = 0; i < IO_TYPES; i++) {
+        if (process->start_io[i] >= 0) {
+            switch (i) {
+                case 0:
+                    printf("Disk:\n");
+                    printf("\tStart = %d\n", process->start_io[i]);
+                    printf("\tDuration = %d\n", process->duration_io[i]);
+                    break;
+                case 1:
+                    printf("Magnetic Tape:\n");
+                    printf("\tStart = %d\n", process->start_io[i]);
+                    printf("\tDuration = %d\n", process->duration_io[i]);
+                    break;
+                case 2:
+                    printf("Printer:\n");
+                    printf("\tStart = %d\n", process->start_io[i]);
+                    printf("\tDuration = %d\n", process->duration_io[i]);
+                    break;
+            }
+        }
+    }
+}
+
+// Imprime todos os processos
+void print_all_processes(Process** processes_list) {
+    for (int i = 0; i < process_number; i++) {
+        print_process(processes_list[i]);
+    }
 }
