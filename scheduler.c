@@ -319,7 +319,7 @@ int main(int argc, char **argv){
         // Preenche novamente as tabelas a cada passo do scheduler
         if(use_ncurses){
             noecho();
-            
+
             mvwprintw(general_info, 0, 0, "u.t:            - %d", t);
 
             if(running_process) {
@@ -801,6 +801,9 @@ void print_process(Process* process) {
     printf("\nProcesso %d:\n", process->pid);
     printf("\tStatus = ");
     switch (process->status) {
+        case NONE:
+            printf("NONE\n");
+            break;
         case NEW:
             printf("NEW\n");
             break;
